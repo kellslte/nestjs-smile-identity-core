@@ -1,6 +1,6 @@
 {
   "name": "@scwar/nestjs-smile-identity-core",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A comprehensive NestJS module for integrating with Smile Identity API",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
