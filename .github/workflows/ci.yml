@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run tests with coverage
+        run: npm run test:cov
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check code formatting
+        run: npm run format:check
+
+      - name: Build package
+        run: npm run build
+
+      - name: Check bundle size
+        run: |
+          echo "Checking bundle size..."
+          if [ -d "dist" ]; then
+            echo "Bundle size:"
+            du -sh dist/
+            echo "Files in dist:"
+            find dist -type f -name "*.js" -o -name "*.d.ts" | wc -l
+          else
+            echo "No dist directory found"
+            exit 1
+          fi
+
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+
+      - name: Check for outdated dependencies
+        run: npm outdated || true
+
+  release-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check if release is needed
+        id: check-release
+        run: |
+          # Check if there are commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS_SINCE_TAG=$(git log $LAST_TAG..HEAD --oneline | wc -l)
+            if [ $COMMITS_SINCE_TAG -gt 0 ]; then
+              echo "needs_release=true" >> $GITHUB_OUTPUT
+              echo "commits_since_tag=$COMMITS_SINCE_TAG" >> $GITHUB_OUTPUT
+            else
+              echo "needs_release=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "needs_release=true" >> $GITHUB_OUTPUT
+            echo "commits_since_tag=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log release status
+        run: |
+          if [ "${{ steps.check-release.outputs.needs_release }}" = "true" ]; then
+            echo "🚀 Release needed! There are ${{ steps.check-release.outputs.commits_since_tag }} commits since the last tag."
+            echo "Consider creating a new release using: npm run release:auto"
+          else
+            echo "✅ No release needed at this time."
+          fi
+

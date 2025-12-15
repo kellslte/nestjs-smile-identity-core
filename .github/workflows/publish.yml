@@ -1,0 +1,124 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build
+
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          # Extract the latest changelog entry
+          CHANGELOG=$(awk '/^## \['${{ steps.version.outputs.version }}'\]/{p=1;next}/^## \[/{p=0}p' CHANGELOG.md | sed '1d')
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Extract breaking changes
+        id: breaking-changes
+        run: |
+          if grep -A 10 "### Breaking Changes" CHANGELOG.md | grep -q "^-"; then
+            BREAKING=$(awk '/^### Breaking Changes/{p=1;next}/^###/{p=0}p' CHANGELOG.md | grep "^-" | head -5)
+            echo "breaking_changes<<EOF" >> $GITHUB_OUTPUT
+            echo "$BREAKING" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "breaking_changes=No breaking changes in this release." >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract features
+        id: features
+        run: |
+          if grep -A 10 "### Features" CHANGELOG.md | grep -q "^-"; then
+            FEATURES=$(awk '/^### Features/{p=1;next}/^###/{p=0}p' CHANGELOG.md | grep "^-" | head -5)
+            echo "features<<EOF" >> $GITHUB_OUTPUT
+            echo "$FEATURES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "features=No new features in this release." >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract bug fixes
+        id: bug-fixes
+        run: |
+          if grep -A 10 "### Bug Fixes" CHANGELOG.md | grep -q "^-"; then
+            FIXES=$(awk '/^### Bug Fixes/{p=1;next}/^###/{p=0}p' CHANGELOG.md | grep "^-" | head -5)
+            echo "bug-fixes<<EOF" >> $GITHUB_OUTPUT
+            echo "$FIXES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "bug-fixes=No bug fixes in this release." >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## What's Changed
+
+            This release includes the following changes:
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## Installation
+
+            ```bash
+            npm install @scwar/nestjs-smile-identity-core@${{ steps.version.outputs.version }}
+            ```
+
+            ## Breaking Changes
+
+            ${{ steps.breaking-changes.outputs.breaking_changes }}
+
+            ## Features
+
+            ${{ steps.features.outputs.features }}
+
+            ## Bug Fixes
+
+            ${{ steps.bug-fixes.outputs.bug_fixes }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

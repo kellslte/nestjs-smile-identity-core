@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build package
+        run: npm run build
+
+      - name: Determine version bump type
+        id: version-bump
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.version_type }}" = "auto" ]; then
+              # Analyze commits since last tag to determine bump type
+              LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+              if [ -n "$LAST_TAG" ]; then
+                COMMITS=$(git log $LAST_TAG..HEAD --oneline --format="%s")
+              else
+                COMMITS=$(git log --oneline --format="%s" | head -10)
+              fi
+              
+              # Check for breaking changes
+              if echo "$COMMITS" | grep -q "!:"; then
+                echo "bump_type=major" >> $GITHUB_OUTPUT
+              elif echo "$COMMITS" | grep -q "^feat:"; then
+                echo "bump_type=minor" >> $GITHUB_OUTPUT
+              else
+                echo "bump_type=patch" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "bump_type=${{ github.event.inputs.version_type }}" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Analyze commits since last tag
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [ -n "$LAST_TAG" ]; then
+              COMMITS=$(git log $LAST_TAG..HEAD --oneline --format="%s")
+            else
+              COMMITS=$(git log --oneline --format="%s" | head -10)
+            fi
+            
+            # Check for breaking changes
+            if echo "$COMMITS" | grep -q "!:"; then
+              echo "bump_type=major" >> $GITHUB_OUTPUT
+            elif echo "$COMMITS" | grep -q "^feat:"; then
+              echo "bump_type=minor" >> $GITHUB_OUTPUT
+            else
+              echo "bump_type=patch" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Bump version
+        run: |
+          if [ "${{ steps.version-bump.outputs.bump_type }}" = "auto" ]; then
+            npm run version:auto
+          else
+            npm run version:${{ steps.version-bump.outputs.bump_type }}
+          fi
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Update changelog
+        run: npm run changelog:update
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+      - name: Commit version bump
+        run: |
+          git add .
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]" || exit 0
+
+      - name: Create tag
+        run: |
+          git tag "v${{ env.NEW_VERSION }}" || echo "Tag already exists"
+          echo "✅ Created tag v${{ env.NEW_VERSION }}"
+
+      - name: Push changes
+        run: |
+          echo "Pushing changes to ${{ github.ref }}..."
+          git push origin HEAD:${{ github.ref }}
+          echo "✅ Pushed changes successfully"
+
+      - name: Push tag
+        run: |
+          echo "Pushing tag v${{ env.NEW_VERSION }}..."
+          git push origin "v${{ env.NEW_VERSION }}" || echo "Tag already exists remotely"
+          echo "✅ Pushed tag successfully"
+

@@ -16,6 +16,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "version:patch": "npm version patch --no-git-tag-version && npm run changelog:update",
     "version:minor": "npm version minor --no-git-tag-version && npm run changelog:update",
     "version:major": "npm version major --no-git-tag-version && npm run changelog:update",

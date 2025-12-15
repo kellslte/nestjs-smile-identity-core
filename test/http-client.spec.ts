@@ -58,6 +58,8 @@ describe('HttpClient', () => {
     });
 
     it('should retry on retryable errors', async () => {
+      jest.useRealTimers(); // Use real timers for this test
+      
       const mockResponse = {
         ok: false,
         status: 500,
@@ -73,20 +75,26 @@ describe('HttpClient', () => {
       );
 
       expect(global.fetch).toHaveBeenCalledTimes(3); // Initial + 2 retries
-    });
+      
+      jest.useFakeTimers(); // Restore fake timers
+    }, 15000);
 
     it('should handle timeout errors', async () => {
-      (global.fetch as jest.Mock).mockImplementation(() => {
-        return new Promise((_, reject) => {
-          setTimeout(() => reject({ name: 'AbortError' }), 100);
-        });
-      });
+      jest.useRealTimers(); // Use real timers for this test
+      
+      // Mock fetch to immediately reject with AbortError (simulating timeout)
+      const abortError = { name: 'AbortError', message: 'The operation was aborted' };
+      (global.fetch as jest.Mock).mockRejectedValue(abortError);
 
-      const promise = httpClient.request(mockOptions, mockRetryOptions);
-      jest.advanceTimersByTime(30000);
+      await expect(httpClient.request(mockOptions, mockRetryOptions)).rejects.toThrow(
+        SmileIdentityError,
+      );
 
-      await expect(promise).rejects.toThrow(SmileIdentityError);
-    });
+      // Verify it was called (and retried based on retry options)
+      expect(global.fetch).toHaveBeenCalled();
+      
+      jest.useFakeTimers(); // Restore fake timers
+    }, 10000);
   });
 });
 

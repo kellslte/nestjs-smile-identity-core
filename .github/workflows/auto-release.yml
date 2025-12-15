@@ -1,0 +1,131 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - 'examples/**'
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  check-and-release:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip release]')"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build package
+        run: npm run build
+
+      - name: Check if release is needed
+        id: check-release
+        run: |
+          # Check if there are commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS_SINCE_TAG=$(git log $LAST_TAG..HEAD --oneline | wc -l)
+            if [ $COMMITS_SINCE_TAG -gt 0 ]; then
+              echo "needs_release=true" >> $GITHUB_OUTPUT
+              echo "commits_since_tag=$COMMITS_SINCE_TAG" >> $GITHUB_OUTPUT
+            else
+              echo "needs_release=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "needs_release=true" >> $GITHUB_OUTPUT
+            echo "commits_since_tag=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine version bump type
+        id: version-bump
+        if: steps.check-release.outputs.needs_release == 'true'
+        run: |
+          # Analyze commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log $LAST_TAG..HEAD --oneline --format="%s")
+          else
+            COMMITS=$(git log --oneline --format="%s" | head -10)
+          fi
+          
+          # Check for breaking changes
+          if echo "$COMMITS" | grep -q "!:"; then
+            echo "bump_type=major" >> $GITHUB_OUTPUT
+          elif echo "$COMMITS" | grep -q "^feat:"; then
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+          else
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump version
+        if: steps.check-release.outputs.needs_release == 'true'
+        run: |
+          npm run version:${{ steps.version-bump.outputs.bump_type }}
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Update changelog
+        if: steps.check-release.outputs.needs_release == 'true'
+        run: npm run changelog:update
+
+      - name: Configure Git
+        if: steps.check-release.outputs.needs_release == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+      - name: Commit version bump
+        if: steps.check-release.outputs.needs_release == 'true'
+        run: |
+          git add .
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]" || exit 0
+
+      - name: Create tag
+        if: steps.check-release.outputs.needs_release == 'true'
+        run: |
+          git tag "v${{ env.NEW_VERSION }}" || echo "Tag already exists"
+          echo "✅ Created tag v${{ env.NEW_VERSION }}"
+
+      - name: Push changes
+        if: steps.check-release.outputs.needs_release == 'true'
+        run: |
+          echo "Pushing changes to ${{ github.ref }}..."
+          git push origin HEAD:${{ github.ref }}
+          echo "✅ Pushed changes successfully"
+
+      - name: Push tag
+        if: steps.check-release.outputs.needs_release == 'true'
+        run: |
+          echo "Pushing tag v${{ env.NEW_VERSION }}..."
+          git push origin "v${{ env.NEW_VERSION }}" || echo "Tag already exists remotely"
+          echo "✅ Pushed tag successfully"
+
+      - name: Log status
+        if: steps.check-release.outputs.needs_release == 'false'
+        run: |
+          echo "✅ No release needed at this time. All commits are already tagged."
+
