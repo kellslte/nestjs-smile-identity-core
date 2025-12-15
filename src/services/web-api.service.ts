@@ -139,4 +139,3 @@ export class WebApiService extends BaseService {
     return this.post<GetWebTokenResponse>('/web_token', requestData);
   }
 }
-

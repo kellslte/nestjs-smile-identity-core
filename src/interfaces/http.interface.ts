@@ -26,4 +26,3 @@ export interface RetryOptions {
   maxRetryDelay: number;
   shouldRetry?: (error: HttpError) => boolean;
 }
-

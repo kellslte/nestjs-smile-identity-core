@@ -98,4 +98,3 @@ export abstract class BaseService {
     return url.toString();
   }
 }
-

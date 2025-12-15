@@ -32,4 +32,3 @@ export interface ConfirmSignatureResponse {
   valid: boolean;
   message?: string;
 }
-

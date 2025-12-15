@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { SmileIdentityError } from './errors/smile-identity.error';
-import { HttpError, HttpRequestOptions, HttpResponse, RetryOptions } from './interfaces/http.interface';
+import {
+  HttpError,
+  HttpRequestOptions,
+  HttpResponse,
+  RetryOptions,
+} from './interfaces/http.interface';
 
 @Injectable()
 export class HttpClient {
@@ -191,4 +196,3 @@ export class HttpClient {
     }
   }
 }
-

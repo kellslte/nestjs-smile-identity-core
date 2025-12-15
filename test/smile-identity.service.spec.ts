@@ -69,4 +69,3 @@ describe('SmileIdentityService', () => {
     expect(unconfiguredService.isConfigured()).toBe(false);
   });
 });
-

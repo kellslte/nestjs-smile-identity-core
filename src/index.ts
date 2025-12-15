@@ -13,4 +13,3 @@ export * from './interfaces';
 
 // Error exports
 export { SmileIdentityError } from './errors/smile-identity.error';
-

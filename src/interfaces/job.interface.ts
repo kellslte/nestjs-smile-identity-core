@@ -1,14 +1,17 @@
 /**
  * Job types supported by Smile Identity
+ * Note: Job type 5 is used for multiple verification types (Document Verification,
+ * Enhanced KYC, Basic KYC, Business Verification) and is differentiated by other parameters
  */
 export enum JobType {
   BIOMETRIC_KYC = 1,
   SMART_SELFIE_AUTH = 2,
   SMART_SELFIE_REGISTRATION = 4,
   DOCUMENT_VERIFICATION = 5,
-  ENHANCED_KYC = 5,
-  BASIC_KYC = 5,
-  BUSINESS_VERIFICATION = 5,
+  // The following all use job_type 5 but are differentiated by other parameters
+  ENHANCED_KYC = 5, // eslint-disable-line @typescript-eslint/no-duplicate-enum-values
+  BASIC_KYC = 5, // eslint-disable-line @typescript-eslint/no-duplicate-enum-values
+  BUSINESS_VERIFICATION = 5, // eslint-disable-line @typescript-eslint/no-duplicate-enum-values
 }
 
 /**
@@ -93,4 +96,3 @@ export interface JobStatusResponse {
   timestamp?: string;
   [key: string]: any;
 }
-

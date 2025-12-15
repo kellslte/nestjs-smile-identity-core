@@ -1,4 +1,4 @@
-import { JobType, ImageData, IdInfo, JobStatusResponse } from './job.interface';
+import { JobType, ImageData, IdInfo } from './job.interface';
 
 /**
  * Submit job request parameters
@@ -63,4 +63,3 @@ export interface GetWebTokenResponse {
   token?: string;
   [key: string]: any;
 }
-

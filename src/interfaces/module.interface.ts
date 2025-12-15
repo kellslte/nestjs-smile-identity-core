@@ -61,4 +61,3 @@ export interface SmileIdentityModuleAsyncOptions {
    */
   inject?: any[];
 }
-

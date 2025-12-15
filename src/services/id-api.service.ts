@@ -199,4 +199,3 @@ export class IdApiService extends BaseService {
     return this.submitEnhancedKyc(params);
   }
 }
-

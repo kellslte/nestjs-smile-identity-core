@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 import {
-  GenerateSignatureRequest,
   GenerateSignatureResponse,
-  ConfirmSignatureRequest,
   ConfirmSignatureResponse,
 } from '../interfaces/signature.interface';
 
@@ -54,4 +52,3 @@ export class SignatureService {
     };
   }
 }
-

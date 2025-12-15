@@ -1,6 +1,6 @@
 import { BaseService } from '../base.service';
 import { SmileIdentityModuleOptions } from '../interfaces/module.interface';
-import { GetJobStatusRequest } from '../interfaces/utilities.interface';
+import { GetJobStatusRequest } from '../interfaces/web-api.interface';
 import { JobStatusResponse } from '../interfaces/job.interface';
 import { SignatureService } from './signature.service';
 
@@ -60,4 +60,3 @@ export class UtilitiesService extends BaseService {
     return response;
   }
 }
-

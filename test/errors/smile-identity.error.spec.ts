@@ -51,4 +51,3 @@ describe('SmileIdentityError', () => {
     expect(json.data).toEqual({ data: 'test' });
   });
 });
-

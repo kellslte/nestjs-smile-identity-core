@@ -13,7 +13,9 @@ export class SmileIdentityService {
   public readonly signature: SignatureService;
   public readonly utilities: UtilitiesService;
 
-  constructor(@Inject(SMILE_IDENTITY_MODULE_OPTIONS) private readonly options: SmileIdentityModuleOptions) {
+  constructor(
+    @Inject(SMILE_IDENTITY_MODULE_OPTIONS) private readonly options: SmileIdentityModuleOptions,
+  ) {
     this.webApi = new WebApiService(this.options);
     this.idApi = new IdApiService(this.options);
     this.signature = new SignatureService();
@@ -34,4 +36,3 @@ export class SmileIdentityService {
     return !!(this.options.partnerId && this.options.apiKey);
   }
 }
-

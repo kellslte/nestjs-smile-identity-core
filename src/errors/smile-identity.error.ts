@@ -70,4 +70,3 @@ export class SmileIdentityError extends Error {
     };
   }
 }
-

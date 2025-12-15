@@ -1,4 +1,4 @@
-import { IdInfo, JobStatusResponse } from './job.interface';
+import { IdInfo } from './job.interface';
 
 /**
  * Enhanced KYC job submission request
@@ -70,4 +70,3 @@ export interface IdApiJobResponse {
   timestamp?: string;
   [key: string]: any;
 }
-

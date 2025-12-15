@@ -16,6 +16,4 @@ export * from './web-api.interface';
 // IDApi interfaces
 export * from './id-api.interface';
 
-// Utilities interfaces
-export * from './utilities.interface';
-
+// Note: Utilities interfaces are exported from web-api.interface.ts to avoid duplication
